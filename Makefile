@@ -10,8 +10,9 @@ MAIN         := ./cmd/$(APP)
 MAINTAINER   := Kawaiipantsu <12233528+kawaiipantsu@users.noreply.github.com>
 HOMEPAGE     := https://thugs.red
 
-# Version: prefer an annotated git tag, else VERSION file, else 0.0.0-dev.
-VERSION      ?= $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' | grep . || cat VERSION 2>/dev/null || echo 0.0.0-dev)
+# Version: prefer the latest git tag, else the VERSION file, else 0.0.0-dev.
+# (A bare commit hash is intentionally not used as the package version.)
+VERSION      ?= $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' | grep . || cat VERSION 2>/dev/null || echo 0.0.0-dev)
 COMMIT       := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE   := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 
