@@ -90,8 +90,9 @@ func (m model) View() string {
 		body,
 		bottom,
 	)
-	// Center the whole block in the terminal, horizontally and vertically.
-	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, block)
+	// Center horizontally but pin to the top, so the UI doesn't jump around
+	// vertically as the content height changes between views/filters.
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Top, block)
 }
 
 func (m model) header(outerW int) string {

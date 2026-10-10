@@ -13,7 +13,7 @@ Caches, stale logs, core dumps and build junk — found, measured and taken out,
 ![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=for-the-badge&logo=go&logoColor=white)
 ![Arch](https://img.shields.io/badge/amd64_%7C_arm64-14100f?style=for-the-badge)
 ![Dry-run](https://img.shields.io/badge/DRY--RUN-safe_by_default-0a8a46?style=for-the-badge)
-![Version](https://img.shields.io/badge/release-0.1.2-ff2b3b?style=for-the-badge)
+![Version](https://img.shields.io/badge/release-0.2.0-ff2b3b?style=for-the-badge)
 [![License](https://img.shields.io/badge/LICENSE-MIT-ff2b3b?style=for-the-badge)](LICENSE)
 
 [**Install via apt**](#-build--install) · [**What it cleans**](#-what-it-cleans) · [**Usage**](#-usage) · [**TUI**](#️-the-interactive-tui) · [**Controls**](#️-controls) · [**APT repo**](https://apt.thugs.red) · [**THUGS(red)**](https://thugs.red)
