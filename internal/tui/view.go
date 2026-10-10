@@ -8,6 +8,14 @@ import (
 	"github.com/kawaiipantsu/xxc-cleaners/internal/humanize"
 )
 
+// Layout limits. The UI never renders below the minimum and is centered in the
+// terminal; on larger terminals it grows up to the cap and stays centered.
+const (
+	minWidth  = 80
+	minHeight = 24
+	maxWidth  = 120
+)
+
 var (
 	colAccent = lipgloss.Color("170") // magenta/pink — THUGS(red) vibe
 	colRed    = lipgloss.Color("196")
@@ -28,44 +36,74 @@ var (
 		Padding(0, 1)
 )
 
+// uiWidth returns the outer UI width (border included) for a terminal width.
+func uiWidth(termW int) int {
+	w := termW
+	if w > maxWidth {
+		w = maxWidth
+	}
+	if w < minWidth {
+		w = minWidth
+	}
+	return w
+}
+
+// uiContentWidth is the usable width inside the box (minus border + padding).
+func uiContentWidth(termW int) int { return uiWidth(termW) - 4 }
+
 func (m model) View() string {
 	if m.width == 0 {
 		return "initializing…"
 	}
-	var b strings.Builder
-	b.WriteString(m.header())
-	b.WriteString("\n")
+	// Minimum-size gate.
+	if m.width < minWidth || m.height < minHeight {
+		msg := styWarn.Render(fmt.Sprintf(
+			"  Terminal too small\n\n  need at least %d×%d\n  current  %d×%d\n\n  resize, or press q to quit",
+			minWidth, minHeight, m.width, m.height))
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
+			box.Render(msg))
+	}
+
+	outerW := uiWidth(m.width)
+	contentW := outerW - 4
+
+	var body string
 	if m.loading {
-		b.WriteString(box.Width(m.width - 2).Render("\n    " + m.status + "\n"))
-		b.WriteString("\n" + m.footer())
-		return b.String()
-	}
-	switch m.view {
-	case viewDisk:
-		b.WriteString(m.diskView())
-	default:
-		b.WriteString(m.findingsView())
-	}
-	b.WriteString("\n")
-	if m.confirm {
-		b.WriteString(m.confirmBar())
+		body = box.Width(contentW + 2).Render("\n    " + m.status + "\n")
+	} else if m.view == viewDisk {
+		body = m.diskView(contentW)
 	} else {
-		b.WriteString(m.footer())
+		body = m.findingsView(contentW)
 	}
-	return b.String()
+
+	var bottom string
+	if m.confirm {
+		bottom = m.confirmBar(outerW)
+	} else {
+		bottom = m.footer(outerW)
+	}
+
+	block := lipgloss.JoinVertical(lipgloss.Left,
+		m.header(outerW),
+		body,
+		bottom,
+	)
+	// Center the whole block in the terminal, horizontally and vertically.
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, block)
 }
 
-func (m model) header() string {
-	mode := styGreenOrRed(m.dryRun)
-	left := styTitle.Render(" 󱆜 XXC The Cleaners ") // nf-md-broom
+func (m model) header(outerW int) string {
+	left := styTitle.Render("󱆜 XXC The Cleaners") // nf-md-broom
 	tabs := m.tabBar()
+	mode := styGreenOrRed(m.dryRun)
 	right := mode + "  " + styDim.Render("THUGS(red)")
-	gap := m.width - lipgloss.Width(left) - lipgloss.Width(tabs) - lipgloss.Width(right) - 2
+
+	gap := outerW - lipgloss.Width(left) - lipgloss.Width(tabs) - lipgloss.Width(right)
 	if gap < 1 {
 		gap = 1
 	}
 	line := left + tabs + strings.Repeat(" ", gap) + right
-	return lipgloss.NewStyle().Width(m.width).Render(line)
+	return lipgloss.NewStyle().Width(outerW).MaxWidth(outerW).Render(line)
 }
 
 func styGreenOrRed(dry bool) string {
@@ -86,14 +124,10 @@ func (m model) tabBar() string {
 	return "  " + tab(" Findings", m.view == viewFindings) + tab(" Disk", m.view == viewDisk)
 }
 
-func (m model) findingsView() string {
-	inner := m.width - 4
-	if inner < 20 {
-		inner = 20
-	}
+func (m model) findingsView(contentW int) string {
 	var b strings.Builder
 
-	// Search box
+	// Search box (its own line; width was set on resize).
 	searchStyle := styDim
 	if m.searching {
 		searchStyle = lipgloss.NewStyle().Foreground(colAccent)
@@ -101,29 +135,38 @@ func (m model) findingsView() string {
 	b.WriteString(searchStyle.Render(m.search.View()))
 	b.WriteString("\n")
 
-	// Column layout
-	sizeW, cleanerW := 9, 16
-	pathW := inner - sizeW - cleanerW - 6
-	if pathW < 10 {
-		pathW = 10
+	// Column widths (fixed columns; path takes the rest).
+	const (
+		wCursor  = 1
+		wMark    = 1
+		wSize    = 9
+		wCleaner = 18
+		gaps     = 4 // spaces between the 5 fields
+	)
+	wPath := contentW - wCursor - wMark - wSize - wCleaner - gaps
+	if wPath < 10 {
+		wPath = 10
 	}
 
-	head := fmt.Sprintf(" %-3s %-*s %-*s %s", "", sizeW, "SIZE", cleanerW, "CLEANER", "PATH / ACTION")
+	// Header row.
+	head := fmt.Sprintf("%s %s %s %s",
+		fitPlain("", wCursor+wMark),
+		fitPlain("SIZE", wSize),
+		fitPlain("CLEANER", wCleaner),
+		fitPlain("PATH / ACTION", wPath))
 	b.WriteString(styDim.Render(head) + "\n")
 
-	rows := m.visibleRows(pathW, sizeW, cleanerW)
-	b.WriteString(rows)
+	b.WriteString(m.rowsBlock(wSize, wCleaner, wPath))
 
-	content := b.String()
-	return box.Width(m.width - 2).Render(content)
+	return box.Width(contentW + 2).Render(b.String())
 }
 
-func (m model) visibleRows(pathW, sizeW, cleanerW int) string {
+func (m model) rowsBlock(wSize, wCleaner, wPath int) string {
 	if len(m.filtered) == 0 {
-		return styDim.Render("\n  (nothing matches — clean machine, or adjust your filter)\n")
+		return styDim.Render("\n  (nothing matches — clean machine, or adjust your filter)")
 	}
-	// window
-	rowsVisible := m.height - 11
+
+	rowsVisible := m.height - 12
 	if rowsVisible < 3 {
 		rowsVisible = 3
 	}
@@ -137,51 +180,64 @@ func (m model) visibleRows(pathW, sizeW, cleanerW int) string {
 	for i := start; i < end; i++ {
 		idx := m.filtered[i]
 		r := m.rows[idx]
-		cursor := " "
+		sizeStr := humanize.Bytes(r.size)
+		if r.isCmd && r.size == 0 {
+			sizeStr = "cmd"
+		}
+		cur := " "
 		if i == m.cursor {
-			cursor = styTitle.Render("") // >
+			cur = "" // chevron
 		}
 		mark := " "
 		if m.selected[idx] {
-			mark = styMark.Render("") // check
+			mark = "" // check
 		}
-		size := humanize.Bytes(r.size)
-		if r.isCmd && r.size == 0 {
-			size = "cmd"
-		}
-		label := truncate(r.label, pathW)
-		cleaner := truncate(r.icon+" "+r.cleaner, cleanerW)
-		line := fmt.Sprintf("%s%s %-*s %-*s %s", cursor, mark, sizeW, size, cleanerW, cleaner, label)
+		size := fitPlain(sizeStr, wSize)
+		cleaner := fitPlain(r.icon+" "+r.cleaner, wCleaner)
+		path := fitPlain(r.label, wPath)
+
 		if i == m.cursor {
-			line = stySel.Render(fmt.Sprintf("%-*s", pathW+sizeW+cleanerW+6, strings.TrimRight(line, " ")))
+			// Selected: one background style over the whole plain line.
+			plain := fmt.Sprintf("%s%s %s %s %s", cur, mark, size, cleaner, path)
+			b.WriteString(stySel.Render(plain))
+		} else {
+			markR := mark
+			if m.selected[idx] {
+				markR = styMark.Render(mark)
+			}
+			b.WriteString(fmt.Sprintf("%s%s %s %s %s",
+				styDim.Render(cur), markR, size, styDim.Render(cleaner), path))
 		}
-		b.WriteString(line + "\n")
+		b.WriteString("\n")
 	}
 	b.WriteString(styDim.Render(fmt.Sprintf("\n  %d/%d shown · %d selected · %s reclaimable",
 		len(m.filtered), len(m.rows), m.selectedCount(), humanize.Bytes(m.selectedBytes()))))
 	return b.String()
 }
 
-func (m model) diskView() string {
+func (m model) diskView(contentW int) string {
 	var b strings.Builder
-	b.WriteString(styTitle.Render("  Filesystems") + "\n\n")
+	b.WriteString(styTitle.Render(" Filesystems") + "\n\n")
 	if len(m.mounts) == 0 {
 		b.WriteString(styDim.Render("  no filesystems detected"))
-		return box.Width(m.width - 2).Render(b.String())
+		return box.Width(contentW + 2).Render(b.String())
 	}
-	barW := m.width - 40
+	nameW := 20
+	// bar + "  used/total  pct" trailer; size the bar to the remaining width.
+	trailerW := 24
+	barW := contentW - nameW - trailerW - 2
 	if barW < 10 {
 		barW = 10
 	}
 	for _, mt := range m.mounts {
-		name := truncate(mt.MountPoint, 18)
-		usage := fmt.Sprintf("%6s/%-6s", humanize.Bytes(mt.UsedBytes), humanize.Bytes(mt.TotalBytes))
-		b.WriteString(fmt.Sprintf(" %-18s %s %s %s\n",
+		name := fitPlain(mt.MountPoint, nameW)
+		usage := fmt.Sprintf("%7s/%-7s", humanize.Bytes(mt.UsedBytes), humanize.Bytes(mt.TotalBytes))
+		b.WriteString(fmt.Sprintf("%s %s %s %s\n",
 			name, colorBar(mt.UsedPercent(), barW), usage, pctLabel(mt.UsedPercent())))
-		b.WriteString(styDim.Render(fmt.Sprintf(" %-18s %s  inodes %s\n",
-			"", truncate(mt.FSType+" on "+mt.Device, barW+1), pctLabel(mt.InodePercent()))))
+		sub := fmt.Sprintf("%s on %s  ·  inodes %.0f%%", mt.FSType, mt.Device, mt.InodePercent())
+		b.WriteString(styDim.Render(fitPlain("  "+sub, contentW)) + "\n")
 	}
-	return box.Width(m.width - 2).Render(b.String())
+	return box.Width(contentW + 2).Render(strings.TrimRight(b.String(), "\n"))
 }
 
 func colorBar(pct float64, width int) string {
@@ -192,6 +248,9 @@ func colorBar(pct float64, width int) string {
 		pct = 100
 	}
 	filled := int(pct/100*float64(width) + 0.5)
+	if filled > width {
+		filled = width
+	}
 	full := strings.Repeat("█", filled)
 	empty := strings.Repeat("░", width-filled)
 	c := colGreen
@@ -216,22 +275,23 @@ func pctLabel(pct float64) string {
 	}
 }
 
-func (m model) footer() string {
+func (m model) footer(outerW int) string {
 	keys := []string{
-		" tab:view", "/ search", "↑↓ move", "space:select",
-		"a:all", "A:none", "c:clean", "d:dry-run", "r:rescan", "q:quit",
+		"tab:view", "/ search", "↑↓ move", "space:sel",
+		"a:all", "c:clean", "d:dry-run", "r:rescan", "q:quit",
 	}
-	return styDim.Render(" " + strings.Join(keys, "  ·  "))
+	line := " " + strings.Join(keys, " · ")
+	return styDim.Render(fitPlain(line, outerW))
 }
 
-func (m model) confirmBar() string {
+func (m model) confirmBar(outerW int) string {
 	n := m.countActionable()
 	mode := "DELETE"
 	if m.dryRun {
 		mode = "preview (dry-run)"
 	}
-	msg := fmt.Sprintf("  %s %d item(s)? ", mode, n)
-	return styWarn.Bold(true).Render(msg) + styDim.Render(" [y] confirm   [n/esc] cancel")
+	msg := fmt.Sprintf("  %s %d item(s)?  [y] confirm   [n/esc] cancel", mode, n)
+	return styWarn.Bold(true).Render(fitPlain(msg, outerW))
 }
 
 func (m model) selectedCount() int {
@@ -254,17 +314,28 @@ func (m model) selectedBytes() int64 {
 	return t
 }
 
-func truncate(s string, w int) string {
-	if w <= 1 {
+// fitPlain pads or truncates PLAIN (unstyled) text to exactly w display cells.
+// Truncation adds an ellipsis; padding appends spaces. Operating on plain text
+// keeps the box's right border perfectly aligned.
+func fitPlain(s string, w int) string {
+	if w <= 0 {
 		return ""
 	}
-	if lipgloss.Width(s) <= w {
+	vw := lipgloss.Width(s)
+	if vw == w {
 		return s
 	}
-	// Truncate from the left for paths so the filename stays visible.
-	r := []rune(s)
-	if len(r) > w {
-		return "…" + string(r[len(r)-w+1:])
+	if vw < w {
+		return s + strings.Repeat(" ", w-vw)
 	}
-	return s
+	// Too wide: drop trailing runes until it fits with an ellipsis.
+	r := []rune(s)
+	for len(r) > 0 && lipgloss.Width(string(r))+1 > w {
+		r = r[:len(r)-1]
+	}
+	out := string(r) + "…"
+	if pad := w - lipgloss.Width(out); pad > 0 {
+		out += strings.Repeat(" ", pad)
+	}
+	return out
 }

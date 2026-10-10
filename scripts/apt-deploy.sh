@@ -1,63 +1,37 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  apt-deploy.sh — upload a .deb to the apt.thugs.red repository API.
+#  apt-deploy.sh — upload & publish .deb(s) to apt.thugs.red (XXC-APTD).
 #
-#  Invoked by `make apt-thugs-red`. Reads the API key and endpoint from
-#  the environment (populated from .apt-deploy.env, which is git-ignored).
-#  The key is NEVER printed and NEVER committed.
+#  Thin wrapper around scripts/apt_deploy.py, which implements the real
+#  administrative API v1 workflow (upload -> stage -> diff -> publish ->
+#  poll). See https://apt.thugs.red/api
 #
-#  Usage: scripts/apt-deploy.sh <path-to.deb>
+#  Invoked by `make apt-thugs-red`. The API token is read from the
+#  environment (XXC_APT_KEY) or from .apt-deploy.env (git-ignored). It is
+#  never placed in argv and never printed.
 #
-#  Environment:
-#    XXC_APT_KEY      (required)  API token for apt.thugs.red
-#    APT_ENDPOINT     upload URL        (default https://apt.thugs.red/api/upload)
-#    APT_DIST         distribution      (default stable)
-#    APT_COMPONENT    component         (default main)
-#    APT_AUTH_HEADER  auth header name  (default "Authorization: Bearer")
-#
-#  NOTE: adjust APT_ENDPOINT / fields below to match the actual
-#  apt.thugs.red API contract if it differs.
+#  Usage: scripts/apt-deploy.sh <pkg1.deb> [pkg2.deb ...]
 # =====================================================================
 set -euo pipefail
 
-DEB="${1:-}"
-if [ -z "$DEB" ] || [ ! -f "$DEB" ]; then
-    echo "apt-deploy: missing or invalid .deb argument: '${DEB}'" >&2
+here="$(cd "$(dirname "$0")" && pwd)"
+root="$(cd "$here/.." && pwd)"
+
+# Load the token/env from .apt-deploy.env when not already in the environment.
+if [ -z "${XXC_APT_KEY:-}" ] && [ -f "$root/.apt-deploy.env" ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . "$root/.apt-deploy.env"
+    set +a
+fi
+
+if [ -z "${XXC_APT_KEY:-}" ]; then
+    echo "apt-deploy: XXC_APT_KEY not set (export it or create .apt-deploy.env)" >&2
+    echo "            cp .apt-deploy.env.example .apt-deploy.env  and add your token" >&2
     exit 2
 fi
 
-: "${XXC_APT_KEY:?apt-deploy: XXC_APT_KEY is required}"
-APT_ENDPOINT="${APT_ENDPOINT:-https://apt.thugs.red/api/upload}"
-APT_DIST="${APT_DIST:-stable}"
-APT_COMPONENT="${APT_COMPONENT:-main}"
-APT_AUTH_HEADER="${APT_AUTH_HEADER:-Authorization: Bearer}"
+command -v python3 >/dev/null 2>&1 || { echo "apt-deploy: python3 is required" >&2; exit 3; }
 
-command -v curl >/dev/null 2>&1 || { echo "apt-deploy: curl not found" >&2; exit 3; }
-
-echo "  -> ${DEB##*/}  =>  ${APT_ENDPOINT}  [${APT_DIST}/${APT_COMPONENT}]"
-
-# Upload. The response body is captured; the HTTP code decides success.
-http_code=$(curl -sS -o /tmp/xxc-apt-deploy.out -w '%{http_code}' \
-    -X POST "${APT_ENDPOINT}" \
-    -H "${APT_AUTH_HEADER} ${XXC_APT_KEY}" \
-    -H "X-Api-Key: ${XXC_APT_KEY}" \
-    -F "distribution=${APT_DIST}" \
-    -F "component=${APT_COMPONENT}" \
-    -F "file=@${DEB};type=application/vnd.debian.binary-package") || {
-        echo "apt-deploy: upload failed (curl error)" >&2
-        exit 4
-    }
-
-if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
-    echo "  OK (HTTP $http_code)"
-    rm -f /tmp/xxc-apt-deploy.out
-    exit 0
-fi
-
-echo "apt-deploy: server returned HTTP $http_code" >&2
-echo "----- response -----" >&2
-cat /tmp/xxc-apt-deploy.out >&2 || true
-echo >&2
-echo "--------------------" >&2
-rm -f /tmp/xxc-apt-deploy.out
-exit 5
+# -I: isolated mode (ignore env PYTHONPATH and the script dir on sys.path).
+exec python3 -I "$here/apt_deploy.py" "$@"

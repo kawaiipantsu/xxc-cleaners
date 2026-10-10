@@ -38,11 +38,12 @@ LDFLAGS      := -s -w \
 GO           ?= go
 GOFLAGS      ?=
 
-# apt.thugs.red deploy settings. The API key is read from the environment or a
-# local .apt-deploy.env file (both git-ignored) — it is NEVER committed.
-APT_ENDPOINT ?= https://apt.thugs.red/api/upload
-APT_COMPONENT?= main
-APT_DIST     ?= stable
+# apt.thugs.red deploy settings (XXC-APTD admin API v1, see https://apt.thugs.red/api).
+# The API token is read from the environment or a local .apt-deploy.env file
+# (both git-ignored) — it is NEVER committed. The management API lives behind an
+# operator-enabled admin proxy; override XXC_API_BASE if yours differs.
+XXC_API_BASE ?= https://apt.thugs.red/admin/api/v1
+XXC_SUITE    ?= zerotrust
 
 .DEFAULT_GOAL := build
 
@@ -150,23 +151,16 @@ _deb:
 ## ---------------------------------------------------------------- deploy
 
 .PHONY: apt-thugs-red
-apt-thugs-red: deb-all ## Build debs and upload them to apt.thugs.red
-	@# Load the deploy key from env or .apt-deploy.env (never committed).
-	@if [ -z "$$XXC_APT_KEY" ] && [ -f .apt-deploy.env ]; then \
-	  set -a; . ./.apt-deploy.env; set +a; \
-	fi; \
-	if [ -z "$$XXC_APT_KEY" ]; then \
-	  echo "ERROR: XXC_APT_KEY not set (export it or create .apt-deploy.env)"; \
-	  echo "       cp .apt-deploy.env.example .apt-deploy.env  and add your key"; \
-	  exit 1; \
-	fi; \
-	for deb in $(DIST)/$(APP)_$(VERSION)_*.deb; do \
-	  echo "uploading $$deb -> $(APT_ENDPOINT) ($(APT_DIST)/$(APT_COMPONENT)) ..."; \
-	  XXC_APT_KEY="$$XXC_APT_KEY" APT_ENDPOINT="$(APT_ENDPOINT)" \
-	  APT_DIST="$(APT_DIST)" APT_COMPONENT="$(APT_COMPONENT)" \
-	    scripts/apt-deploy.sh "$$deb" || exit 1; \
-	done
-	@echo "deploy complete."
+apt-thugs-red: deb-all ## Build debs and publish them to apt.thugs.red (upload+stage+publish)
+	@# The token is loaded from the environment or .apt-deploy.env by the script.
+	@# All debs are uploaded & staged, then the suite is published once.
+	XXC_API_BASE="$(XXC_API_BASE)" XXC_SUITE="$(XXC_SUITE)" \
+	  scripts/apt-deploy.sh $(DIST)/$(APP)_$(VERSION)_*.deb
+
+.PHONY: apt-thugs-red-stage
+apt-thugs-red-stage: deb-all ## Upload & stage debs to apt.thugs.red WITHOUT publishing
+	XXC_API_BASE="$(XXC_API_BASE)" XXC_SUITE="$(XXC_SUITE)" XXC_STAGE_ONLY=1 \
+	  scripts/apt-deploy.sh $(DIST)/$(APP)_$(VERSION)_*.deb
 
 ## ---------------------------------------------------------------- misc
 

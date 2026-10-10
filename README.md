@@ -13,7 +13,7 @@ Caches, stale logs, core dumps and build junk — found, measured and taken out,
 ![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=for-the-badge&logo=go&logoColor=white)
 ![Arch](https://img.shields.io/badge/amd64_%7C_arm64-14100f?style=for-the-badge)
 ![Dry-run](https://img.shields.io/badge/DRY--RUN-safe_by_default-0a8a46?style=for-the-badge)
-![Version](https://img.shields.io/badge/release-0.1.0-ff2b3b?style=for-the-badge)
+![Version](https://img.shields.io/badge/release-0.1.1-ff2b3b?style=for-the-badge)
 [![License](https://img.shields.io/badge/LICENSE-MIT-ff2b3b?style=for-the-badge)](LICENSE)
 
 [**Download**](https://github.com/kawaiipantsu/xxc-cleaners/releases/latest) · [**What it cleans**](#-what-it-cleans) · [**Install**](#-build--install) · [**Usage**](#-usage) · [**TUI**](#️-the-interactive-tui) · [**Controls**](#️-controls) · [**THUGS(red)**](https://thugs.red)
@@ -67,19 +67,19 @@ Run `xxc-cleaners --list` to see keys, categories, state and retention on your h
 `xxc-cleaners --interactive` opens the control room. Themed with the THUGS(red) palette, box borders and Nerd Font icons. Type to filter the findings live; `space` to select; `c` to clean; `tab` for the disk map.
 
 ```text
- 󰂜 XXC The Cleaners    Findings   Disk           DRY-RUN   THUGS(red)
-╭───────────────────────────────────────────────────────────────────╮
-│  find: go-build                                                    │
-│      SIZE      CLEANER          PATH / ACTION                      │
-│ ❯ ✓  1.9G       go-build-cache   /root/.cache/go-build             │
-│      842.0M     go-build-cache   /home/dev/.cache/go-build         │
-│      318.4M     node-cache       /home/dev/.npm/_cacache           │
-│      204.1M     apt-cache        /var/cache/apt/archives/*.deb     │
-│      cmd        journal          vacuum journal to 500M            │
-│                                                                    │
-│   2/37 shown · 1 selected · 1.9G reclaimable                       │
-╰───────────────────────────────────────────────────────────────────╯
- 󰋊 tab:view · / search · ↑↓ move · space:select · a:all · c:clean · q:quit
+ XXC The Cleaners     [ Findings ]  Disk           DRY-RUN   THUGS(red)
+╭─────────────────────────────────────────────────────────────────────╮
+│  find: go-build_                                                    │
+│    SIZE       CLEANER          PATH / ACTION                        │
+│ > *  1.9G      go-build-cache   /root/.cache/go-build               │
+│      842.0M    go-build-cache   /home/dev/.cache/go-build           │
+│      318.4M    node-cache       /home/dev/.npm/_cacache             │
+│      204.1M    apt-cache        /var/cache/apt/archives/*.deb       │
+│      cmd       journal          vacuum journal to 500M              │
+│                                                                     │
+│   2/37 shown  *  1 selected  *  1.9G reclaimable                    │
+╰─────────────────────────────────────────────────────────────────────╯
+ tab:view   / search   up/down move   space:select   c:clean   q:quit
 ```
 
 | View | Focus |
@@ -98,7 +98,7 @@ sudo apt update && sudo apt install xxc-cleaners
 Or download the `.deb` for your architecture (amd64 / arm64) from [Releases](https://github.com/kawaiipantsu/xxc-cleaners/releases/latest):
 
 ```sh
-sudo apt install ./xxc-cleaners_0.1.0_amd64.deb
+sudo apt install ./xxc-cleaners_0.1.1_amd64.deb
 xxc-cleaners --about
 ```
 
