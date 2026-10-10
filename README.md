@@ -16,7 +16,7 @@ Caches, stale logs, core dumps and build junk — found, measured and taken out,
 ![Version](https://img.shields.io/badge/release-0.1.1-ff2b3b?style=for-the-badge)
 [![License](https://img.shields.io/badge/LICENSE-MIT-ff2b3b?style=for-the-badge)](LICENSE)
 
-[**Download**](https://github.com/kawaiipantsu/xxc-cleaners/releases/latest) · [**What it cleans**](#-what-it-cleans) · [**Install**](#-build--install) · [**Usage**](#-usage) · [**TUI**](#️-the-interactive-tui) · [**Controls**](#️-controls) · [**THUGS(red)**](https://thugs.red)
+[**Install via apt**](#-build--install) · [**What it cleans**](#-what-it-cleans) · [**Usage**](#-usage) · [**TUI**](#️-the-interactive-tui) · [**Controls**](#️-controls) · [**APT repo**](https://apt.thugs.red) · [**THUGS(red)**](https://thugs.red)
 
 <samp>by Kawaiipantsu · THUGS(red) · safe by default, autonomous when you need it</samp>
 
@@ -89,20 +89,27 @@ Run `xxc-cleaners --list` to see keys, categories, state and retention on your h
 
 ## 📦 Build & install
 
-Install from the [THUGS(red) APT repository](https://apt.thugs.red):
+`xxc-cleaners` is distributed through the signed [THUGS(red) APT repository](https://apt.thugs.red) (suite `zerotrust`, amd64 / arm64) — **there are no GitHub release downloads**. Install and update it the same way you manage the rest of your system, with `apt`.
+
+Add the repository once, verifying the archive key's SHA-256 before trusting it:
 
 ```sh
+key=$(mktemp)
+curl -fsS --proto '=https' https://apt.thugs.red/repo/thugsred-archive-keyring.gpg -o "$key"
+echo "026dd9704f4c3c51dc060e39d2834e81d21bf25f71e6ac943061ac2b4c2c1019  $key" | sha256sum -c -
+sudo install -m 0644 "$key" /usr/share/keyrings/thugsred-archive-keyring.gpg
+printf '%s\n' 'Types: deb' 'URIs: https://apt.thugs.red/repo' 'Suites: zerotrust' 'Components: main' \
+  'Signed-By: /usr/share/keyrings/thugsred-archive-keyring.gpg' | sudo tee /etc/apt/sources.list.d/thugsred.sources
 sudo apt update && sudo apt install xxc-cleaners
 ```
 
-Or download the `.deb` for your architecture (amd64 / arm64) from [Releases](https://github.com/kawaiipantsu/xxc-cleaners/releases/latest):
+Once the repository is configured, `sudo apt update && sudo apt install xxc-cleaners` picks up new versions like any other package:
 
 ```sh
-sudo apt install ./xxc-cleaners_0.1.1_amd64.deb
 xxc-cleaners --about
 ```
 
-Build from source with Go 1.22+, make and dpkg-deb:
+Prefer to build it yourself? Build from source with Go 1.22+, make and dpkg-deb:
 
 ```sh
 git clone https://github.com/kawaiipantsu/xxc-cleaners.git
