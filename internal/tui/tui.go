@@ -12,6 +12,7 @@ import (
 	"github.com/kawaiipantsu/xxc-cleaners/internal/disk"
 	"github.com/kawaiipantsu/xxc-cleaners/internal/engine"
 	"github.com/kawaiipantsu/xxc-cleaners/internal/scan"
+	"github.com/kawaiipantsu/xxc-cleaners/internal/survey"
 )
 
 // Run starts the interactive TUI.
@@ -27,7 +28,53 @@ type viewMode int
 const (
 	viewFindings viewMode = iota
 	viewDisk
+	viewHome
+	viewDatabases
+	viewMail
+	viewWeb
 )
+
+// viewOrder is the left-to-right tab order (and 1..N number-key order).
+var viewOrder = []viewMode{viewFindings, viewDisk, viewHome, viewDatabases, viewMail, viewWeb}
+
+// tabLabel is the short label shown in the tab bar (with a nerdfont icon).
+func tabLabel(v viewMode) string {
+	switch v {
+	case viewFindings:
+		return " Findings"
+	case viewDisk:
+		return " Disk"
+	case viewHome:
+		return " Homes"
+	case viewDatabases:
+		return " DBs"
+	case viewMail:
+		return " Mail"
+	case viewWeb:
+		return " Web"
+	}
+	return "?"
+}
+
+// pageTitle is the heading shown on a usage page.
+func pageTitle(v viewMode) string {
+	switch v {
+	case viewHome:
+		return " Disk usage per user home"
+	case viewDatabases:
+		return " Databases, caches & queues"
+	case viewMail:
+		return " Mail storage"
+	case viewWeb:
+		return " Web storage"
+	}
+	return ""
+}
+
+// isUsagePage reports whether v is one of the lazily-loaded survey pages.
+func isUsagePage(v viewMode) bool {
+	return v == viewHome || v == viewDatabases || v == viewMail || v == viewWeb
+}
 
 // row is one actionable line in the findings view.
 type row struct {
@@ -50,6 +97,11 @@ type model struct {
 	selected map[int]bool
 
 	mounts []disk.Mount
+
+	// Lazily-loaded usage pages (Homes / Databases / Mail / Web).
+	pages       map[viewMode][]survey.Item
+	pageLoaded  map[viewMode]bool
+	pageLoading map[viewMode]bool
 
 	search    textinput.Model
 	searching bool
@@ -77,14 +129,76 @@ func newModel(eng *engine.Engine) model {
 	ti.CharLimit = 128
 
 	return model{
-		eng:      eng,
-		dryRun:   eng.Context().Config.DryRun,
-		selected: map[int]bool{},
-		search:   ti,
-		loading:  true,
-		view:     viewFindings,
-		status:   "scanning…",
+		eng:         eng,
+		dryRun:      eng.Context().Config.DryRun,
+		selected:    map[int]bool{},
+		pages:       map[viewMode][]survey.Item{},
+		pageLoaded:  map[viewMode]bool{},
+		pageLoading: map[viewMode]bool{},
+		search:      ti,
+		loading:     true,
+		view:        viewFindings,
+		status:      "scanning…",
 	}
+}
+
+// pageMsg carries the result of loading a usage page in the background.
+type pageMsg struct {
+	view  viewMode
+	items []survey.Item
+}
+
+// loadPageCmd computes a usage page off the UI thread.
+func loadPageCmd(v viewMode) tea.Cmd {
+	return func() tea.Msg {
+		var items []survey.Item
+		switch v {
+		case viewHome:
+			items = survey.Homes()
+		case viewDatabases:
+			items = survey.Databases()
+		case viewMail:
+			items = survey.Mail()
+		case viewWeb:
+			items = survey.Web()
+		}
+		return pageMsg{view: v, items: items}
+	}
+}
+
+// ensurePage loads the current usage page if it hasn't been loaded yet.
+func (m *model) ensurePage() tea.Cmd {
+	v := m.view
+	if !isUsagePage(v) || m.pageLoaded[v] || m.pageLoading[v] {
+		return nil
+	}
+	m.pageLoading[v] = true
+	return loadPageCmd(v)
+}
+
+// pageLen returns the number of navigable rows in the current view.
+func (m model) pageLen() int {
+	switch m.view {
+	case viewFindings:
+		return len(m.filtered)
+	case viewHome, viewDatabases, viewMail, viewWeb:
+		return len(m.pages[m.view])
+	default:
+		return 0
+	}
+}
+
+// cycleView moves the active tab by delta (wrapping).
+func cycleView(v viewMode, delta int) viewMode {
+	idx := 0
+	for i, vv := range viewOrder {
+		if vv == v {
+			idx = i
+			break
+		}
+	}
+	idx = (idx + delta + len(viewOrder)) % len(viewOrder)
+	return viewOrder[idx]
 }
 
 func (m model) Init() tea.Cmd {
@@ -150,6 +264,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.status = fmt.Sprintf("%d items found", len(m.rows))
 		return m, nil
 
+	case pageMsg:
+		m.pages[msg.view] = msg.items
+		m.pageLoaded[msg.view] = true
+		m.pageLoading[msg.view] = false
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -185,11 +305,19 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		return m, tea.Quit
-	case "tab":
-		if m.view == viewFindings {
-			m.view = viewDisk
-		} else {
-			m.view = viewFindings
+	case "tab", "right", "l":
+		m.view = cycleView(m.view, +1)
+		m.cursor = 0
+		return m, m.ensurePage()
+	case "shift+tab", "left", "h":
+		m.view = cycleView(m.view, -1)
+		m.cursor = 0
+		return m, m.ensurePage()
+	case "1", "2", "3", "4", "5", "6":
+		if n := int(msg.String()[0] - '1'); n >= 0 && n < len(viewOrder) {
+			m.view = viewOrder[n]
+			m.cursor = 0
+			return m, m.ensurePage()
 		}
 	case "/":
 		if m.view == viewFindings {
@@ -202,17 +330,17 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor--
 		}
 	case "down", "j":
-		if m.cursor < len(m.filtered)-1 {
+		if m.cursor < m.pageLen()-1 {
 			m.cursor++
 		}
 	case "pgup":
 		m.cursor = max(0, m.cursor-10)
 	case "pgdown":
-		m.cursor = min(len(m.filtered)-1, m.cursor+10)
+		m.cursor = min(m.pageLen()-1, m.cursor+10)
 	case "home", "g":
 		m.cursor = 0
 	case "end", "G":
-		m.cursor = max(0, len(m.filtered)-1)
+		m.cursor = max(0, m.pageLen()-1)
 	case " ":
 		if m.view == viewFindings && m.cursor < len(m.filtered) {
 			idx := m.filtered[m.cursor]
@@ -228,6 +356,13 @@ func (m model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.dryRun = !m.dryRun
 		m.eng.Context().Config.DryRun = m.dryRun
 	case "r":
+		// Invalidate cached usage pages so they reload on next visit.
+		m.pageLoaded = map[viewMode]bool{}
+		m.pageLoading = map[viewMode]bool{}
+		m.pages = map[viewMode][]survey.Item{}
+		if isUsagePage(m.view) {
+			return m, m.ensurePage()
+		}
 		m.loading = true
 		m.status = "rescanning…"
 		m.selected = map[int]bool{}

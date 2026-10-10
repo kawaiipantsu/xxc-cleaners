@@ -72,6 +72,8 @@ func (m model) View() string {
 		body = box.Width(contentW + 2).Render("\n    " + m.status + "\n")
 	} else if m.view == viewDisk {
 		body = m.diskView(contentW)
+	} else if isUsagePage(m.view) {
+		body = m.usageView(contentW)
 	} else {
 		body = m.findingsView(contentW)
 	}
@@ -94,16 +96,20 @@ func (m model) View() string {
 
 func (m model) header(outerW int) string {
 	left := styTitle.Render("󱆜 XXC The Cleaners") // nf-md-broom
-	tabs := m.tabBar()
 	mode := styGreenOrRed(m.dryRun)
 	right := mode + "  " + styDim.Render("THUGS(red)")
 
-	gap := outerW - lipgloss.Width(left) - lipgloss.Width(tabs) - lipgloss.Width(right)
+	gap := outerW - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {
 		gap = 1
 	}
-	line := left + tabs + strings.Repeat(" ", gap) + right
-	return lipgloss.NewStyle().Width(outerW).MaxWidth(outerW).Render(line)
+	titleLine := lipgloss.NewStyle().Width(outerW).MaxWidth(outerW).
+		Render(left + strings.Repeat(" ", gap) + right)
+
+	// Tab bar on its own full-width line so all tabs fit at 80 columns.
+	tabLine := lipgloss.NewStyle().Width(outerW).MaxWidth(outerW).Render(m.tabBar())
+
+	return lipgloss.JoinVertical(lipgloss.Left, titleLine, tabLine)
 }
 
 func styGreenOrRed(dry bool) string {
@@ -115,13 +121,18 @@ func styGreenOrRed(dry bool) string {
 
 func (m model) tabBar() string {
 	tab := func(name string, on bool) string {
-		s := lipgloss.NewStyle().Padding(0, 1)
+		st := lipgloss.NewStyle().Padding(0, 1)
 		if on {
-			return s.Foreground(lipgloss.Color("231")).Background(colAccent).Render(name)
+			return st.Foreground(lipgloss.Color("231")).Background(colAccent).Bold(true).Render(name)
 		}
-		return s.Foreground(colDim).Render(name)
+		return st.Foreground(colDim).Render(name)
 	}
-	return "  " + tab(" Findings", m.view == viewFindings) + tab(" Disk", m.view == viewDisk)
+	var b strings.Builder
+	b.WriteString(" ")
+	for i, v := range viewOrder {
+		b.WriteString(tab(fmt.Sprintf("%d %s", i+1, tabLabel(v)), m.view == v))
+	}
+	return b.String()
 }
 
 func (m model) findingsView(contentW int) string {
@@ -240,6 +251,63 @@ func (m model) diskView(contentW int) string {
 	return box.Width(contentW + 2).Render(strings.TrimRight(b.String(), "\n"))
 }
 
+// usageView renders one of the lazily-loaded survey pages (Homes/DBs/Mail/Web).
+func (m model) usageView(contentW int) string {
+	var b strings.Builder
+	b.WriteString(styTitle.Render(pageTitle(m.view)) + "\n\n")
+
+	if m.pageLoading[m.view] || !m.pageLoaded[m.view] {
+		b.WriteString(styDim.Render("    measuring… (this can take a moment on large trees)"))
+		return box.Width(contentW + 2).Render(b.String())
+	}
+
+	items := m.pages[m.view]
+	if len(items) == 0 {
+		b.WriteString(styDim.Render("  nothing detected on this host"))
+		return box.Width(contentW + 2).Render(b.String())
+	}
+
+	var maxSize, total int64
+	for _, it := range items {
+		if it.Size > maxSize {
+			maxSize = it.Size
+		}
+		total += it.Size
+	}
+
+	const (
+		wCursor = 2
+		wLabel  = 22
+		wSize   = 9
+		wDetail = 13
+	)
+	wBar := contentW - wCursor - wLabel - wSize - wDetail - 3
+	if wBar < 6 {
+		wBar = 6
+	}
+
+	for i, it := range items {
+		cursor := "  "
+		if i == m.cursor {
+			cursor = styTitle.Render(" ") // chevron
+		}
+		pct := 0.0
+		if maxSize > 0 {
+			pct = float64(it.Size) / float64(maxSize) * 100
+		}
+		label := fitPlain(it.Label, wLabel)
+		size := fitPlain(humanize.Bytes(it.Size), wSize)
+		detail := styDim.Render(fitPlain(it.Detail, wDetail))
+		b.WriteString(fmt.Sprintf("%s%s %s %s %s\n",
+			cursor, label, styMark.Render(size), colorBar(pct, wBar), detail))
+		b.WriteString(styDim.Render(fitPlain("  "+it.Path, contentW)) + "\n")
+	}
+
+	b.WriteString(styDim.Render(fmt.Sprintf("\n  %d locations · %s total measured",
+		len(items), humanize.Bytes(total))))
+	return box.Width(contentW + 2).Render(strings.TrimRight(b.String(), "\n"))
+}
+
 func colorBar(pct float64, width int) string {
 	if pct < 0 {
 		pct = 0
@@ -277,7 +345,7 @@ func pctLabel(pct float64) string {
 
 func (m model) footer(outerW int) string {
 	keys := []string{
-		"tab:view", "/ search", "↑↓ move", "space:sel",
+		"tab/1-6:pages", "/ search", "↑↓ move", "space:sel",
 		"a:all", "c:clean", "d:dry-run", "r:rescan", "q:quit",
 	}
 	line := " " + strings.Join(keys, " · ")

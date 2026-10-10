@@ -8,14 +8,18 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/kawaiipantsu/xxc-cleaners/internal/disk"
+	"github.com/kawaiipantsu/xxc-cleaners/internal/survey"
 )
 
 func sampleModel(w, h int) model {
 	ti := textinput.New()
 	ti.Width = uiContentWidth(w) - 4
 	m := model{
-		selected: map[int]bool{},
-		search:   ti,
+		selected:    map[int]bool{},
+		pages:       map[viewMode][]survey.Item{},
+		pageLoaded:  map[viewMode]bool{},
+		pageLoading: map[viewMode]bool{},
+		search:      ti,
 		width:    w,
 		height:   h,
 		view:     viewFindings,
@@ -33,6 +37,17 @@ func sampleModel(w, h int) model {
 		m.filtered = append(m.filtered, i)
 	}
 	m.selected[0] = true
+
+	// Populate a sample usage page for each survey view.
+	usage := []survey.Item{
+		{Label: "www-data", Path: "/var/www/html/site-with-a-long-path/public", Size: 9 << 30, Detail: "www"},
+		{Label: "logs", Path: "/var/log/nginx", Size: 512 << 20, Detail: "logs"},
+		{Label: "cache", Path: "/var/cache/nginx", Size: 0, Detail: "cache"},
+	}
+	for _, v := range []viewMode{viewHome, viewDatabases, viewMail, viewWeb} {
+		m.pages[v] = usage
+		m.pageLoaded[v] = true
+	}
 	_ = time.Now
 	return m
 }
@@ -66,6 +81,11 @@ func TestBoxWidthsAreUniform(t *testing.T) {
 
 		m.view = viewDisk
 		assertUniformWidth(t, "diskView", m.diskView(cw))
+
+		for _, v := range []viewMode{viewHome, viewDatabases, viewMail, viewWeb} {
+			m.view = v
+			assertUniformWidth(t, "usageView", m.usageView(cw))
+		}
 	}
 }
 

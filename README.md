@@ -13,7 +13,7 @@ Caches, stale logs, core dumps and build junk — found, measured and taken out,
 ![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=for-the-badge&logo=go&logoColor=white)
 ![Arch](https://img.shields.io/badge/amd64_%7C_arm64-14100f?style=for-the-badge)
 ![Dry-run](https://img.shields.io/badge/DRY--RUN-safe_by_default-0a8a46?style=for-the-badge)
-![Version](https://img.shields.io/badge/release-0.1.1-ff2b3b?style=for-the-badge)
+![Version](https://img.shields.io/badge/release-0.1.2-ff2b3b?style=for-the-badge)
 [![License](https://img.shields.io/badge/LICENSE-MIT-ff2b3b?style=for-the-badge)](LICENSE)
 
 [**Install via apt**](#-build--install) · [**What it cleans**](#-what-it-cleans) · [**Usage**](#-usage) · [**TUI**](#️-the-interactive-tui) · [**Controls**](#️-controls) · [**APT repo**](https://apt.thugs.red) · [**THUGS(red)**](https://thugs.red)
@@ -82,10 +82,18 @@ Run `xxc-cleaners --list` to see keys, categories, state and retention on your h
  tab:view   / search   up/down move   space:select   c:clean   q:quit
 ```
 
+Switch pages with `Tab` / `Shift-Tab` or the number keys `1`–`6`:
+
 | View | Focus |
 | :-- | :-- |
-| **Findings** | Every reclaimable item, largest first; live search, multi-select and clean |
-| **Disk** | Mounted filesystems with usage bars, inode usage, device & filesystem type |
+| **1 · Findings** | Every reclaimable item, largest first; live search, multi-select and clean |
+| **2 · Disk** | Mounted filesystems with usage bars, inode usage, device & filesystem type |
+| **3 · Homes** | Disk usage per user home directory (with a cache-size hint) |
+| **4 · DBs** | Databases, caches & queues (MySQL/MariaDB, PostgreSQL, Mongo, Redis, InfluxDB, RabbitMQ…) with their data, logs and replication artifacts (binlogs, WAL) |
+| **5 · Mail** | Mail storage: vmail, system mailboxes, spools, Postfix/Exim queues, Dovecot cache and mail logs |
+| **6 · Web** | Web storage: `/var/www` & `/srv/www` roots, Apache/Nginx logs, Nginx/Varnish/PHP caches |
+
+The Homes/DBs/Mail/Web pages are **read-only** storage overviews — they measure and rank locations so you can see where space goes; they never delete anything.
 
 ## 📦 Build & install
 
