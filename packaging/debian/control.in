@@ -1,0 +1,23 @@
+Package: xxc-cleaners
+Version: @VERSION@
+Section: admin
+Priority: optional
+Architecture: @ARCH@
+Maintainer: @MAINTAINER@
+Homepage: @HOMEPAGE@
+Depends: libc6
+Recommends: systemd
+Suggests: docker.io, apache2
+Description: XXC The Cleaners - retention & cleanup tool for Linux
+ When things get messy, you call in The Cleaners.
+ .
+ A fast, safe retention and cleanup utility for Linux servers and
+ workstations. It discovers and reclaims space from user/root caches,
+ /tmp, the APT cache, rotated and compressed system logs, Apache logs,
+ pip/npm/yarn/pnpm and Go build caches, browser caches, old AI assistant
+ caches, core dumps, the systemd journal and Docker build cache.
+ .
+ Supports dry-run previews, silent/verbose modes, per-area retention,
+ whitelist path protection, a visual TUI (--interactive) with search,
+ filtering and a disk-usage overview, and fully autonomous operation
+ from crontab.

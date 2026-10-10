@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Report a security vulnerability privately
+    url: https://github.com/kawaiipantsu/xxc-cleaners/security/advisories/new
+    about: Please report security issues privately via GitHub Security Advisories, not as a public issue.
+  - name: 🖤 THUGS(red) community
+    url: https://thugs.red
+    about: Learn more about the crew behind XXC The Cleaners.

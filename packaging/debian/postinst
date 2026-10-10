@@ -1,0 +1,23 @@
+#!/bin/sh
+# postinst for xxc-cleaners
+set -e
+
+case "$1" in
+    configure)
+        # Ensure the config directory exists.
+        if [ ! -d /etc/xxc ]; then
+            mkdir -p /etc/xxc
+            chmod 0755 /etc/xxc
+        fi
+        echo "XXC The Cleaners installed."
+        echo "  Config : /etc/xxc/cleaners.conf"
+        echo "  Try    : xxc-cleaners --about"
+        echo "           xxc-cleaners --dry-run        (safe preview)"
+        echo "           xxc-cleaners --interactive    (visual TUI)"
+        echo "  Cron   : /usr/share/doc/xxc-cleaners/crontab.example"
+        ;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+        ;;
+esac
+
+exit 0

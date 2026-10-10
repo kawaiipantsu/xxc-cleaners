@@ -1,0 +1,43 @@
+# ---- build artifacts ----
+/dist/
+/build/
+*.deb
+*.o
+*.a
+/xxc-cleaners
+/cmd/xxc-cleaners/xxc-cleaners
+bin/
+
+# ---- secrets & credentials (NEVER commit) ----
+.apt-deploy.env
+*.key
+*.pem
+*.p12
+*.pfx
+secrets.*
+.secrets/
+*.token
+
+# ---- local / environment ----
+.env
+.env.*
+!.env.example
+*.local
+
+# ---- Go ----
+*.test
+*.out
+coverage.*
+vendor/
+
+# ---- editors / OS ----
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# ---- logs / tmp ----
+*.log
+tmp/

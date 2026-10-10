@@ -1,0 +1,27 @@
+# =====================================================================
+#  XXC The Cleaners — example crontab / cron.d entries
+#
+#  Install one or more of these into /etc/cron.d/xxc-cleaners (root owned,
+#  mode 0644). Each line can target a different area with its own
+#  retention, so you can stagger cleanups across the week.
+#
+#  ALWAYS use --silent for cron, and --yes to actually delete.
+#  Test first with: xxc-cleaners --dry-run --only <keys>
+# =====================================================================
+
+# m h dom mon dow user  command
+
+# Nightly: quick, safe wins (temp files, rotated logs, apt cache).
+0 4 * * *   root  /usr/bin/xxc-cleaners --silent --yes --only tmp,var-log,apt-cache
+
+# Weekly (Sun 04:30): heavier areas with a longer retention window.
+30 4 * * 0  root  /usr/bin/xxc-cleaners --silent --yes --only journal,core-dumps --retention 30
+
+# Weekly (Mon 05:00): developer caches (pip, node, go build).
+0 5 * * 1   root  /usr/bin/xxc-cleaners --silent --yes --only pip-cache,node-cache,go-build-cache --retention 21
+
+# Monthly (1st, 05:30): Docker build cache (needs [docker] prune in config).
+30 5 1 * *  root  /usr/bin/xxc-cleaners --silent --yes --only docker
+
+# Everything, using /etc/xxc/cleaners.conf defaults (uncomment to enable):
+# 0 3 * * *  root  /usr/bin/xxc-cleaners --silent --yes

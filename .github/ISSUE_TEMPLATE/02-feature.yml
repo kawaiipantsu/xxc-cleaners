@@ -1,0 +1,41 @@
+name: ✨ Feature request
+description: Suggest a new capability, flag, TUI improvement or quality-of-life change.
+title: "[feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: "Got an idea to make The Cleaners sharper? Tell us about it."
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: The use case or pain point behind the request.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should it do? A new flag, config option, TUI view, output format…?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI / flags
+        - TUI / interactive
+        - Config file
+        - Storage analysis / disk overview
+        - Packaging / deployment
+        - A new cleaner (use the "New cleaning path" template instead if it's a path)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you use today, or other approaches you weighed.

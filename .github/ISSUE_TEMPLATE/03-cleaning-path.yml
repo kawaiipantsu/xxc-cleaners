@@ -1,0 +1,54 @@
+name: 🧹 New cleaning path / cleaner
+description: Propose a new location or category that XXC The Cleaners should be able to reclaim.
+title: "[cleaner]: "
+labels: ["cleaner", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suggest a new cache/log/junk location to clean. The more precise the
+        paths and the safety reasoning, the faster it can land.
+  - type: input
+    id: name
+    attributes:
+      label: What should it clean?
+      placeholder: "e.g. Snap package caches, Flatpak unused runtimes, composer cache…"
+    validations:
+      required: true
+  - type: textarea
+    id: paths
+    attributes:
+      label: Exact paths / globs
+      description: The directories or glob patterns involved (per-user with `~` where relevant).
+      placeholder: |
+        ~/.cache/composer
+        /var/lib/snapd/cache/*
+      render: text
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options: [caches, logs, system, dev, containers, other]
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Why is it safe to delete?
+      description: Is the data regenerated automatically? Any retention window needed? Anything that must be excluded?
+    validations:
+      required: true
+  - type: input
+    id: retention
+    attributes:
+      label: Suggested default retention
+      placeholder: "e.g. 14 days, or 'any age (always re-downloadable)'"
+  - type: checkboxes
+    id: protect
+    attributes:
+      label: Protection check
+      options:
+        - label: This path does NOT overlap databases, `/etc`, boot files, SSH/GPG keys, Docker volumes or other protected data.
+          required: true

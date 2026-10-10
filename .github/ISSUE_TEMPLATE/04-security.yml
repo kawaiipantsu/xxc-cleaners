@@ -1,0 +1,42 @@
+name: 🔒 Security issue (low sensitivity only)
+description: For low-sensitivity, already-public hardening notes. For real vulnerabilities, use private reporting instead.
+title: "[security]: "
+labels: ["security"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!WARNING]
+        > **Do not file an exploitable vulnerability as a public issue.**
+        > Report those privately via
+        > [GitHub Security Advisories](https://github.com/kawaiipantsu/xxc-cleaners/security/advisories/new)
+        > so a fix can ship before details are public. See [SECURITY.md](../SECURITY.md).
+        >
+        > This template is only for **low-sensitivity, non-exploitable** hardening
+        > suggestions (e.g. "a protected path is missing from the default whitelist").
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgement
+      options:
+        - label: This is NOT an exploitable vulnerability, or it is already public knowledge.
+          required: true
+        - label: I have NOT included a working exploit or step-by-step attack path.
+          required: true
+  - type: textarea
+    id: concern
+    attributes:
+      label: The concern
+      description: Describe the hardening gap. Keep it conceptual, not a weaponised PoC.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested mitigation
+      description: What would make this safer? (e.g. an additional default protected path.)
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "0.1.0"

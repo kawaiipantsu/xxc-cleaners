@@ -1,0 +1,71 @@
+name: 🐞 Bug report
+description: Something went wrong — a crash, a wrong result, or unexpected behaviour.
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping clean up the bugs too. Please **do not** paste real
+        hostnames, secrets or sensitive paths — redact anything private.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you get instead?
+      placeholder: "`xxc-cleaners --dry-run` reported … but …"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact command(s) you ran.
+      placeholder: |
+        1. xxc-cleaners --only tmp --dry-run
+        2. ...
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output / logs
+      description: Run with `--verbose` and paste the relevant output (redacted).
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `xxc-cleaners --version`.
+      placeholder: "XXC The Cleaners (xxc-cleaners) 0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Architecture
+      options: [amd64, arm64, other]
+    validations:
+      required: true
+  - type: input
+    id: distro
+    attributes:
+      label: Distribution & version
+      placeholder: "Debian 12 / Ubuntu 24.04 / …"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How was it installed?
+      options: [APT repository, .deb download, built from source, other]
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Confirmation
+      options:
+        - label: I reproduced this with `--dry-run` where possible and no protected path was involved.
+          required: false
+        - label: I redacted hostnames, secrets and sensitive paths.
+          required: true
